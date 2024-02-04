@@ -5,7 +5,7 @@ const TRACK_WIDTH = 8;
 const TRACK_HEIGHT = 0.1;
 const TRACK_DEPTH = 3;
 const BORDER_HEIGHT = 0.5;
-const NB_TRACKS = 30;
+const NB_TRACKS = 40;
 const NB_OBSTACLES = 10;
 const SPAWN_POS_Z = (TRACK_DEPTH * NB_TRACKS);
 const SPEED_Z = 50;
@@ -85,10 +85,10 @@ class Game {
 
         // This creates a basic Babylon Scene object (non-mesh)
         this.scene = new Scene(this.engine);
-        this.scene.clearColor = new Color3(0.6, 0.6, 0.85);
-        this.scene.ambientColor = new Color3(0.5, 0.5, 0.8);
+        this.scene.clearColor = new Color3(0.7, 0.7, 0.95);
+        this.scene.ambientColor = new Color3(0.8, 0.8, 1);
         this.scene.fogMode = Scene.FOGMODE_LINEAR;
-        this.scene.fogStart = 2 * SPAWN_POS_Z / 3;
+        this.scene.fogStart = SPAWN_POS_Z - 30;
         this.scene.fogEnd = SPAWN_POS_Z;
         this.scene.fogColor = new Color3(0.6, 0.6, 0.85);
 
@@ -135,14 +135,15 @@ class Game {
             this.tracks.push(newTrack);
         }
         mainTrack.dispose();
-        /*        
+                
                 SceneLoader.ImportMesh("", "", mountainUrl, this.scene, (newMeshes) => {
                     // Set the target of the camera to the first imported mesh
                     newMeshes[0].name = "mountain";
-                    newMeshes[0].position = new Vector3(0, -15, 0);
-                    //newMeshes[0].scaling = new Vector3(0.1, 0.1, 0.1);
+                    newMeshes[0].position = new Vector3(-18, -31.3, 123.2);
+                    newMeshes[0].rotation = new Vector3(0, Math.PI/2, 0);
+                    newMeshes[0].scaling = new Vector3(2, 2, 2);
                     
-                });*/
+                });
 
         let obstacleModele = MeshBuilder.CreateBox("obstacle", { width: 0.5, height: 1, depth: 1 }, this.scene);
         let mat = new StandardMaterial("mat", this.scene);
