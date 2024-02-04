@@ -26,6 +26,7 @@ class Game {
     startTimer;
 
     player;
+    playerBox;
     obstacles = [];
     tracks = [];
 
@@ -54,7 +55,7 @@ class Game {
                 }
             });
 
-            Inspector.Show(this.scene, {});
+            //Inspector.Show(this.scene, {});
         });
 
     }
@@ -64,13 +65,12 @@ class Game {
         this.startTimer = 0;
         this.engine.runRenderLoop(() => {
 
-            if (this.player) {
                 let delta = this.engine.getDeltaTime() / 1000.0;
 
                 this.updateMoves(delta);
                 this.update(delta);
-            }
-            this.scene.render();
+
+                this.scene.render();
         });
     }
 
@@ -88,7 +88,7 @@ class Game {
                 obstacle.position.set(x, 0.5, z);
             } else {
 
-                if (this.player.intersectsMesh(obstacle, false)) {
+                if (this.playerBox.intersectsMesh(obstacle, false)) {
                     console.log("HIT");
                     this.aie.play();
                 }
@@ -180,8 +180,14 @@ class Game {
         res.meshes[0].rotation = new Vector3(0, 0, 0);
         res.animationGroups[0].stop();
         res.animationGroups[1].play(true);
-        this.player.checkCollisions = true;
-        this.player.collisionGroup = 1;
+        
+        this.playerBox = MeshBuilder.CreateCapsule("playerCap", {width:0.4, height:1.7});
+        this.playerBox.position.y = 1.7/2;
+        this.playerBox.parent = this.player;
+        this.playerBox.checkCollisions = true;
+        this.playerBox.collisionGroup = 1;
+        this.playerBox.visibility = 0;
+        //this.playerBox.showBoundingBox = true;
 
 
         let mainTrack = MeshBuilder.CreateBox("trackmiddle", { width: TRACK_WIDTH, height: TRACK_HEIGHT, depth: TRACK_DEPTH });
@@ -225,6 +231,7 @@ class Game {
             mat.diffuseColor = new Color3(Scalar.RandomRange(0, 1), Scalar.RandomRange(0, 1), Scalar.RandomRange(0, 1));
             obstacle.material = mat;
 
+            //obstacle.showBoundingBox = true;
             obstacle.checkCollisions = true;
             obstacle.collisionGroup = 2;
 
