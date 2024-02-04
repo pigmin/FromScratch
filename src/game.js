@@ -1,4 +1,4 @@
-import { Color3, FreeCamera, HemisphericLight, KeyboardEventTypes, MeshBuilder, MotionBlurPostProcess, Scalar, Scene, SceneLoader, StandardMaterial, Texture, Vector3 } from "@babylonjs/core";
+import { Color3, Color4, FreeCamera, HemisphericLight, KeyboardEventTypes, MeshBuilder, MotionBlurPostProcess, Scalar, Scene, SceneLoader, Sound, StandardMaterial, Texture, Vector3 } from "@babylonjs/core";
 import { Inspector } from "@babylonjs/inspector";
 
 const TRACK_WIDTH = 8;
@@ -8,12 +8,14 @@ const BORDER_HEIGHT = 0.5;
 const NB_TRACKS = 50;
 const NB_OBSTACLES = 10;
 const SPAWN_POS_Z = (TRACK_DEPTH * NB_TRACKS);
-const SPEED_Z = 50;
+const SPEED_Z = 40;
 const SPEED_X = 10;
 
 import meshUrl from "../assets/models/player.glb";
 import mountainUrl from "../assets/models/mount_timpanogos_early_2017.glb";
 import roadTextureUrl from "../assets/textures/dd719e47a144a8ed5f56999b21ffafeb.jpg";
+
+import hitSoundUrl from "../assets/sounds/344033__reitanna__cute-impact.wav";
 
 class Game {
 
@@ -36,23 +38,25 @@ class Game {
     }
 
     init() {
-        this.createScene();
+        this.createScene().then(() => {
 
-        this.scene.onKeyboardObservable.add((kbInfo) => {
-            switch (kbInfo.type) {
-                case KeyboardEventTypes.KEYDOWN:
-                    this.inputMap[kbInfo.event.code] = true;
-                    //console.log(`KEY DOWN: ${kbInfo.event.code} / ${kbInfo.event.key}`);
-                    break;
-                case KeyboardEventTypes.KEYUP:
-                    this.inputMap[kbInfo.event.code] = false;
-                    this.actions[kbInfo.event.code] = true;
-                    //console.log(`KEY UP: ${kbInfo.event.code} / ${kbInfo.event.key}`);
-                    break;
-            }
-        });        
+            this.scene.onKeyboardObservable.add((kbInfo) => {
+                switch (kbInfo.type) {
+                    case KeyboardEventTypes.KEYDOWN:
+                        this.inputMap[kbInfo.event.code] = true;
+                        //console.log(`KEY DOWN: ${kbInfo.event.code} / ${kbInfo.event.key}`);
+                        break;
+                    case KeyboardEventTypes.KEYUP:
+                        this.inputMap[kbInfo.event.code] = false;
+                        this.actions[kbInfo.event.code] = true;
+                        //console.log(`KEY UP: ${kbInfo.event.code} / ${kbInfo.event.key}`);
+                        break;
+                }
+            });
 
-        Inspector.Show(this.scene, {});
+            Inspector.Show(this.scene, {});
+        });
+
     }
 
     start() {
@@ -60,17 +64,18 @@ class Game {
         this.startTimer = 0;
         this.engine.runRenderLoop(() => {
 
-            
-            let delta = this.engine.getDeltaTime() / 1000.0;
-            
-            this.updateMoves(delta);
-            this.update(delta);
+            if (this.player) {
+                let delta = this.engine.getDeltaTime() / 1000.0;
 
+                this.updateMoves(delta);
+                this.update(delta);
+            }
             this.scene.render();
         });
     }
 
     update(delta) {
+
 
         for (let i = 0; i < this.obstacles.length; i++) {
             let obstacle = this.obstacles[i];
@@ -81,6 +86,13 @@ class Game {
                 let z = Scalar.RandomRange(SPAWN_POS_Z - 15, SPAWN_POS_Z + 15);
                 obstacle.material.diffuseColor = new Color3(Scalar.RandomRange(0, 1), Scalar.RandomRange(0, 1), Scalar.RandomRange(0, 1));
                 obstacle.position.set(x, 0.5, z);
+            } else {
+
+                if (this.player.intersectsMesh(obstacle, false)) {
+                    console.log("HIT");
+                    this.aie.play();
+                }
+
             }
         }
 
@@ -88,7 +100,7 @@ class Game {
         // this.tracks[lastIndex].position.y = Math.sin(this.startTimer*10 ) / 2;
         for (let i = 0; i < this.tracks.length; i++) {
             let track = this.tracks[i];
-            track.position.z -= SPEED_Z/3 * delta;
+            track.position.z -= SPEED_Z / 3 * delta;
         }
         for (let i = 0; i < this.tracks.length; i++) {
             let track = this.tracks[i];
@@ -105,14 +117,12 @@ class Game {
     }
 
     updateMoves(delta) {
-        if (this.inputMap["KeyA"])
-        {
+        if (this.inputMap["KeyA"]) {
             this.player.position.x -= SPEED_X * delta;
             if (this.player.position.x < -3.75)
                 this.player.position.x = -3.75;
         }
-        else if (this.inputMap["KeyD"])
-        {
+        else if (this.inputMap["KeyD"]) {
             this.player.position.x += SPEED_X * delta;
             if (this.player.position.x > 3.75)
                 this.player.position.x = 3.75;
@@ -123,7 +133,7 @@ class Game {
         }
     }
 
-    createScene() {
+    async createScene() {
 
         // This creates a basic Babylon Scene object (non-mesh)
         this.scene = new Scene(this.engine);
@@ -133,6 +143,8 @@ class Game {
         this.scene.fogStart = SPAWN_POS_Z - 30;
         this.scene.fogEnd = SPAWN_POS_Z;
         this.scene.fogColor = new Color3(0.6, 0.6, 0.85);
+        this.scene.collisionsEnabled = true;
+        this.scene.gravity = new Vector3(0, -0.15, 0);
 
         // This creates and positions a free camera (non-mesh)
         this.camera = new FreeCamera("camera1", new Vector3(0, 3.8, 0), this.scene);
@@ -149,26 +161,28 @@ class Game {
         // Default intensity is 1. Let's dim the light a small amount
         light.intensity = 0.7;
 
-    // Finally create the motion blur effect :)
-    var mb = new MotionBlurPostProcess('mb', this.scene, 1.0, this.camera);
-    mb.motionStrength = 64;
+        // Finally create the motion blur effect :)
+        var mb = new MotionBlurPostProcess('mb', this.scene, 1.0, this.camera);
+        mb.motionStrength = 8;
 
         // Our built-in 'ground' shape.
         //var ground = MeshBuilder.CreateGround("ground", {width: 6, height: 6}, scene);
 
 
-        SceneLoader.ImportMesh("", "", meshUrl, this.scene, (newMeshes, particleSystems, skeletons, animationGroups, transformNodes, geometries, lights) => {
-            // Set the target of the camera to the first imported mesh
-            this.player = newMeshes[0];
-            mb.excludeSkinnedMesh(this.player);
-            newMeshes[0].name = "Player";
-            newMeshes[0].scaling = new Vector3(1, 1, 1);
-            newMeshes[0].position.set(0, TRACK_HEIGHT / 2, 6);
-            newMeshes[0].rotation = new Vector3(0, 0, 0);
-            animationGroups[0].stop();
-            animationGroups[1].play(true);
-            this.camera.target = newMeshes[0];
-        });
+        let res = await SceneLoader.ImportMeshAsync("", "", meshUrl, this.scene);
+
+        // Set the target of the camera to the first imported mesh
+        this.player = res.meshes[0];
+        //mb.excludeSkinnedMesh(this.player);
+        res.meshes[0].name = "Player";
+        res.meshes[0].scaling = new Vector3(1, 1, 1);
+        res.meshes[0].position.set(0, TRACK_HEIGHT / 2, 6);
+        res.meshes[0].rotation = new Vector3(0, 0, 0);
+        res.animationGroups[0].stop();
+        res.animationGroups[1].play(true);
+        this.player.checkCollisions = true;
+        this.player.collisionGroup = 1;
+
 
         let mainTrack = MeshBuilder.CreateBox("trackmiddle", { width: TRACK_WIDTH, height: TRACK_HEIGHT, depth: TRACK_DEPTH });
         mainTrack.position = new Vector3(0, 0, 0);
@@ -182,15 +196,14 @@ class Game {
             this.tracks.push(newTrack);
         }
         mainTrack.dispose();
-                
-                SceneLoader.ImportMesh("", "", mountainUrl, this.scene, (newMeshes) => {
-                    // Set the target of the camera to the first imported mesh
-                    newMeshes[0].name = "mountain";
-                    newMeshes[0].position = new Vector3(-18, -31.3, 123.2);
-                    newMeshes[0].rotation = new Vector3(0, Math.PI/2, 0);
-                    newMeshes[0].scaling = new Vector3(2, 2, 2);
-                    
-                });
+
+        res = await SceneLoader.ImportMeshAsync("", "", mountainUrl, this.scene);
+        // Set the target of the camera to the first imported mesh
+        res.meshes[0].name = "mountain";
+        res.meshes[0].position = new Vector3(-18, -31.3, 123.2);
+        res.meshes[0].rotation = new Vector3(0, Math.PI / 2, 0);
+        res.meshes[0].scaling = new Vector3(2, 2, 2);
+
 
         let obstacleModele = MeshBuilder.CreateBox("obstacle", { width: 0.5, height: 1, depth: 1 }, this.scene);
         let mat = new StandardMaterial("mat", this.scene);
@@ -212,9 +225,16 @@ class Game {
             mat.diffuseColor = new Color3(Scalar.RandomRange(0, 1), Scalar.RandomRange(0, 1), Scalar.RandomRange(0, 1));
             obstacle.material = mat;
 
+            obstacle.checkCollisions = true;
+            obstacle.collisionGroup = 2;
+
             this.obstacles.push(obstacle);
         }
         obstacleModele.dispose();
+
+
+        this.aie = new Sound("aie", hitSoundUrl, this.scene);
+
     }
 }
 
