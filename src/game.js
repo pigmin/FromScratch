@@ -1,4 +1,4 @@
-import { Color3, Color4, FreeCamera, HemisphericLight, KeyboardEventTypes, MeshBuilder, MotionBlurPostProcess, Scalar, Scene, SceneLoader, Sound, StandardMaterial, Texture, Vector3 } from "@babylonjs/core";
+import { BoundingInfo, Color3, Color4, DefaultRenderingPipeline, FreeCamera, HemisphericLight, KeyboardEventTypes, MeshBuilder, MotionBlurPostProcess, Scalar, Scene, SceneLoader, Sound, StandardMaterial, Texture, Vector3 } from "@babylonjs/core";
 import { Inspector } from "@babylonjs/inspector";
 
 const TRACK_WIDTH = 8;
@@ -16,6 +16,8 @@ import mountainUrl from "../assets/models/mount_timpanogos_early_2017.glb";
 import roadTextureUrl from "../assets/textures/dd719e47a144a8ed5f56999b21ffafeb.jpg";
 
 import hitSoundUrl from "../assets/sounds/344033__reitanna__cute-impact.wav";
+
+import obstacle1Url from "../assets/models/ice_cube.glb";
 
 class Game {
 
@@ -55,7 +57,7 @@ class Game {
                 }
             });
 
-            //Inspector.Show(this.scene, {});
+            Inspector.Show(this.scene, {});
         });
 
     }
@@ -84,12 +86,10 @@ class Game {
             if (obstacle.position.z < 0) {
                 let x = Scalar.RandomRange(-TRACK_WIDTH / 2, TRACK_WIDTH / 2);
                 let z = Scalar.RandomRange(SPAWN_POS_Z - 15, SPAWN_POS_Z + 15);
-                obstacle.material.diffuseColor = new Color3(Scalar.RandomRange(0, 1), Scalar.RandomRange(0, 1), Scalar.RandomRange(0, 1));
                 obstacle.position.set(x, 0.5, z);
             } else {
 
                 if (this.playerBox.intersectsMesh(obstacle, false)) {
-                    console.log("HIT");
                     this.aie.play();
                 }
 
@@ -146,6 +146,7 @@ class Game {
         this.scene.collisionsEnabled = true;
         this.scene.gravity = new Vector3(0, -0.15, 0);
 
+
         // This creates and positions a free camera (non-mesh)
         this.camera = new FreeCamera("camera1", new Vector3(0, 3.8, 0), this.scene);
 
@@ -155,6 +156,15 @@ class Game {
         // This attaches the camera to the canvas
         this.camera.attachControl(this.canvas, true);
 
+        // Set up new rendering pipeline
+        var pipeline = new DefaultRenderingPipeline("default", true, this.scene, [this.camera]);
+
+        pipeline.glowLayerEnabled = true;
+        pipeline.glowLayer.intensity = 0.35;
+        pipeline.glowLayer.blurKernelSize = 16;
+        pipeline.glowLayer.ldrMerge = true;
+
+
         // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
         var light = new HemisphericLight("light", new Vector3(0, 1, 0), this.scene);
 
@@ -163,7 +173,7 @@ class Game {
 
         // Finally create the motion blur effect :)
         var mb = new MotionBlurPostProcess('mb', this.scene, 1.0, this.camera);
-        mb.motionStrength = 8;
+        mb.motionStrength = 1;
 
         // Our built-in 'ground' shape.
         //var ground = MeshBuilder.CreateGround("ground", {width: 6, height: 6}, scene);
@@ -211,33 +221,54 @@ class Game {
         res.meshes[0].scaling = new Vector3(2, 2, 2);
 
 
-        let obstacleModele = MeshBuilder.CreateBox("obstacle", { width: 0.5, height: 1, depth: 1 }, this.scene);
-        let mat = new StandardMaterial("mat", this.scene);
-        mat.diffuseColor = new Color3(Scalar.RandomRange(0, 1), Scalar.RandomRange(0, 1), Scalar.RandomRange(0, 1));
-        obstacleModele.material = mat;
+
+        //let obstacleModele = MeshBuilder.CreateBox("obstacle", { width: 0.5, height: 1, depth: 1 }, this.scene);
+        res = await SceneLoader.ImportMeshAsync("", "", obstacle1Url, this.scene);        
+        let obstacleModele = res.meshes[0];
+        
+        
         for (let i = 0; i < NB_OBSTACLES; i++) {
             let obstacle = obstacleModele.clone("");
+            obstacle.normalizeToUnitCube();
 
-            let w = Scalar.RandomRange(0.2, 3);
-            let h = Scalar.RandomRange(.2, 2);
-            let d = Scalar.RandomRange(0.2, 3);
+            
+            let w = Scalar.RandomRange(.5, 1.5);
+            let d = Scalar.RandomRange(.5, 1.5);
+            let h = Scalar.RandomRange(.5, 1.5);
             obstacle.scaling.set(w, h, d);
-
+            
             let x = Scalar.RandomRange(-TRACK_WIDTH / 2, TRACK_WIDTH / 2);
             let z = Scalar.RandomRange(SPAWN_POS_Z - 15, SPAWN_POS_Z + 15);
-            obstacle.position.set(x, h / 2, z);
+            obstacle.position.set(x, 0, z);
+            
+            let childMeshes = obstacle.getChildMeshes();
 
-            let mat = new StandardMaterial("mat", this.scene);
-            mat.diffuseColor = new Color3(Scalar.RandomRange(0, 1), Scalar.RandomRange(0, 1), Scalar.RandomRange(0, 1));
-            obstacle.material = mat;
+            let min = childMeshes[0].getBoundingInfo().boundingBox.minimumWorld;
+            let max = childMeshes[0].getBoundingInfo().boundingBox.maximumWorld;
+        
+            for(let i=0; i<childMeshes.length; i++){
+                let mat = new StandardMaterial("mat", this.scene);
+                mat.emissiveColor = new Color4(.3, .3, Scalar.RandomRange(.5, .8));
+                mat.alpha = 0.5;
 
-            //obstacle.showBoundingBox = true;
+                childMeshes[i].material = mat;
+        
+                let meshMin = childMeshes[i].getBoundingInfo().boundingBox.minimumWorld;
+                let meshMax = childMeshes[i].getBoundingInfo().boundingBox.maximumWorld;
+
+
+                min = Vector3.Minimize(min, meshMin);
+                max = Vector3.Maximize(max, meshMax);
+            }
+            obstacle.setBoundingInfo(new BoundingInfo(min, max));
+
+            obstacle.showBoundingBox = false;
             obstacle.checkCollisions = true;
             obstacle.collisionGroup = 2;
 
             this.obstacles.push(obstacle);
         }
-        obstacleModele.dispose();
+        obstacleModele.dispose;
 
 
         this.aie = new Sound("aie", hitSoundUrl, this.scene);
