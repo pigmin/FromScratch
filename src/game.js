@@ -15,6 +15,7 @@ import meshUrl from "../assets/models/player.glb";
 import mountainUrl from "../assets/models/mount_timpanogos_early_2017.glb";
 import roadTextureUrl from "../assets/textures/dd719e47a144a8ed5f56999b21ffafeb.jpg";
 
+import musicUrl from "../assets/musics/Cyberpunk Moonlight Sonata v2.mp3";
 import hitSoundUrl from "../assets/sounds/344033__reitanna__cute-impact.wav";
 
 import obstacle1Url from "../assets/models/ice_cube.glb";
@@ -41,6 +42,7 @@ class Game {
     }
 
     init() {
+        this.engine.displayLoadingUI();
         this.createScene().then(() => {
 
             this.scene.onKeyboardObservable.add((kbInfo) => {
@@ -56,6 +58,7 @@ class Game {
                         break;
                 }
             });
+            this.engine.hideLoadingUI();
 
             //qdqdInspector.Show(this.scene, {});
         });
@@ -271,6 +274,7 @@ class Game {
         obstacleModele.dispose;
 
 
+        this.music = new Sound("music", musicUrl, this.scene, undefined, { loop: true, autoplay: true, volume: 0.4 });
         this.aie = new Sound("aie", hitSoundUrl, this.scene);
 
     }
