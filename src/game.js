@@ -57,7 +57,7 @@ class Game {
                 }
             });
 
-            Inspector.Show(this.scene, {});
+            //qdqdInspector.Show(this.scene, {});
         });
 
     }
